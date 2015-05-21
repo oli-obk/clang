@@ -1,0 +1,11 @@
+[package]
+name = "clang"
+version = "0.1.0"
+authors = ["Oliver Schneider <rust-clang0x442299AAbb@oli-obk.de>"]
+description = "libclang bindings"
+readme = "README.md"
+keywords = ["clang"]
+license-file = "LICENSE"
+
+[dependencies]
+libc = "*"
