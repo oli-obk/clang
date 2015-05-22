@@ -12,15 +12,16 @@ struct MyData {
 #[allow(unconditional_recursion)]
 extern fn cb(cursor: CXCursor, parent: CXCursor, client_data: CXClientData) -> CXChildVisitResult
 {
-    let myData: &mut MyData = unsafe{ transmute(client_data) };
-    for _ in 0..myData.depth*4 {
+    let my_data: &mut MyData = unsafe{ transmute(client_data) };
+    for _ in 0..my_data.depth*4 {
         print!(" ");
     }
-    println!("{:?}", cursor.kind);
-    let mut innerData = MyData {
-        depth: myData.depth + 1,
+    let t = unsafe { clang_getCursorType(cursor.clone()) };
+    println!("{:?}: {:?}", cursor.kind, t.kind);
+    let mut inner_data = MyData {
+        depth: my_data.depth + 1,
     };
-    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut innerData)) });
+    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut inner_data)) });
     CXChildVisitResult::CXChildVisit_Continue
 }
 
@@ -40,9 +41,9 @@ fn parse_header() {
     ) };
     assert!(tu as *const CXTranslationUnitImpl != std::ptr::null());
     let cursor = unsafe { clang_getTranslationUnitCursor(tu) };
-    let mut myData = MyData {
+    let mut my_data = MyData {
         depth: 0,
     };
-    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut myData)) });
+    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut my_data)) });
     unimplemented!()
 }

@@ -31,6 +31,68 @@ extern "C" {
         visitor: CXCursorVisitor,
         client_data: CXClientData,
     ) -> c_uint;
+    pub fn clang_getCursorType(
+        cursor: CXCursor
+    ) -> CXType;
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum CXTypeKind {
+    CXType_Invalid = 0,
+    CXType_Unexposed = 1,
+    CXType_Void = 2,
+    CXType_Bool = 3,
+    CXType_Char_U = 4,
+    CXType_UChar = 5,
+    CXType_Char16 = 6,
+    CXType_Char32 = 7,
+    CXType_UShort = 8,
+    CXType_UInt = 9,
+    CXType_ULong = 10,
+    CXType_ULongLong = 11,
+    CXType_UInt128 = 12,
+    CXType_Char_S = 13,
+    CXType_SChar = 14,
+    CXType_WChar = 15,
+    CXType_Short = 16,
+    CXType_Int = 17,
+    CXType_Long = 18,
+    CXType_LongLong = 19,
+    CXType_Int128 = 20,
+    CXType_Float = 21,
+    CXType_Double = 22,
+    CXType_LongDouble = 23,
+    CXType_NullPtr = 24,
+    CXType_Overload = 25,
+    CXType_Dependent = 26,
+    CXType_ObjCId = 27,
+    CXType_ObjCClass = 28,
+    CXType_ObjCSel = 29,
+    CXType_Complex = 100,
+    CXType_Pointer = 101,
+    CXType_BlockPointer = 102,
+    CXType_LValueReference = 103,
+    CXType_RValueReference = 104,
+    CXType_Record = 105,
+    CXType_Enum = 106,
+    CXType_Typedef = 107,
+    CXType_ObjCInterface = 108,
+    CXType_ObjCObjectPointer = 109,
+    CXType_FunctionNoProto = 110,
+    CXType_FunctionProto = 111,
+    CXType_ConstantArray = 112,
+    CXType_Vector = 113,
+    CXType_IncompleteArray = 114,
+    CXType_VariableArray = 115,
+    CXType_DependentSizedArray = 116,
+    CXType_MemberPointer = 117,
+}
+
+#[repr(C)]
+pub struct CXType {
+    pub kind: CXTypeKind,
+    data: [*const c_void; 2],
 }
 
 #[repr(C)]
@@ -41,6 +103,7 @@ pub enum CXChildVisitResult {
 }
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct CXCursor {
     pub kind: CXCursorKind,
     xdata: c_int,
@@ -48,7 +111,7 @@ pub struct CXCursor {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CXCursorKind {
     CXCursor_UnexposedDecl = 1,
     CXCursor_StructDecl = 2,
