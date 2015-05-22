@@ -42,12 +42,13 @@ pub enum CXChildVisitResult {
 
 #[repr(C)]
 pub struct CXCursor {
-    kind: CXCursorKind,
+    pub kind: CXCursorKind,
     xdata: c_int,
     data: [*const c_void; 3],
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum CXCursorKind {
     CXCursor_UnexposedDecl = 1,
     CXCursor_StructDecl = 2,

@@ -1,18 +1,32 @@
 extern crate clang;
-extern crate libc;
 
 use clang::*;
 use std::ffi::CString;
-use libc::c_void;
 
+use std::mem::transmute;
+
+struct MyData {
+    depth: i32,
+}
+
+#[allow(unconditional_recursion)]
 extern fn cb(cursor: CXCursor, parent: CXCursor, client_data: CXClientData) -> CXChildVisitResult
 {
-    println!("I am a callback");
-    CXChildVisitResult::CXChildVisit_Recurse
+    let myData: &mut MyData = unsafe{ transmute(client_data) };
+    for _ in 0..myData.depth*4 {
+        print!(" ");
+    }
+    println!("{:?}", cursor.kind);
+    let mut innerData = MyData {
+        depth: myData.depth + 1,
+    };
+    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut innerData)) });
+    CXChildVisitResult::CXChildVisit_Continue
 }
 
 #[test]
 fn parse_header() {
+    println!("");
     let idx = unsafe { clang_createIndex(1, 1) };
     let filename = CString::new("tests/cpp_functions.hpp").unwrap();
     let tu = unsafe { clang_parseTranslationUnit(
@@ -26,5 +40,9 @@ fn parse_header() {
     ) };
     assert!(tu as *const CXTranslationUnitImpl != std::ptr::null());
     let cursor = unsafe { clang_getTranslationUnitCursor(tu) };
-    let visitor = unsafe { clang_visitChildren(cursor, cb, 0 as *mut c_void) };
+    let mut myData = MyData {
+        depth: 0,
+    };
+    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut myData)) });
+    unimplemented!()
 }
