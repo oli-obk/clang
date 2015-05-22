@@ -33,12 +33,15 @@ fn parse_header() {
     println!("");
     let idx = unsafe { clang_createIndex(1, 1) };
     let filename = CString::new("tests/clang-c/CXString.h").unwrap();
+    let args = vec!["-I", "tests"];
+    let args: Vec<_> = args.iter().map(|&s| CString::new(s).unwrap()).collect();
+    let args: Vec<_> = args.iter().map(|s| s.as_ptr()).collect();
     let mut tu: CXTranslationUnit = unsafe {transmute(0usize)};
     let res = unsafe { clang_parseTranslationUnit2(
         idx,
         filename.as_ptr(),
-        std::ptr::null(),
-        0,
+        args.as_ptr(),
+        args.len() as i32,
         std::ptr::null(),
         0,
         0,

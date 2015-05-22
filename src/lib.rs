@@ -23,6 +23,16 @@ extern "C" {
         num_unsaved_files: c_uint,
         options: c_uint,
     ) -> CXTranslationUnit;
+    pub fn clang_parseTranslationUnit2(
+        CIdx: CXIndex,
+        source_filename: *const c_char,
+        command_line_args: *const *const c_char,
+        num_command_line_args: c_int,
+        unsaved_files: *const CXUnsavedFile,
+        num_unsaved_files: c_uint,
+        options: c_uint,
+        out_TU: *mut CXTranslationUnit,
+    ) -> CXErrorCode;
     pub fn clang_getTranslationUnitCursor(
         tu: CXTranslationUnit,
     ) -> CXCursor;
@@ -320,6 +330,7 @@ pub struct CXUnsavedFile {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum CXErrorCode {
     CXError_Success = 0,
     CXError_Failure = 1,
