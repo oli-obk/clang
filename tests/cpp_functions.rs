@@ -17,4 +17,5 @@ fn parse_header() {
         0,
     ) };
     assert!(tu as *const CXTranslationUnitImpl != std::ptr::null());
+    let cursor = unsafe { clang_getTranslationUnitCursor(tu) };
 }
