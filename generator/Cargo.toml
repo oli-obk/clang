@@ -1,0 +1,15 @@
+[package]
+name = "cpp_bind_gen"
+version = "0.1.0"
+authors = ["Oliver Schneider <rust-bind-gen6549879321312657@oli-obk.de>"]
+description = "binding generator from cpp files"
+readme = "README.md"
+keywords = ["clang", "binding", "generator"]
+license-file = "LICENSE"
+
+[lib]
+name = "cpp_bind_gen"
+plugin = true
+
+[dependencies.clang]
+path=".."
