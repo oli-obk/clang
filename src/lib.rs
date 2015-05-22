@@ -5,6 +5,8 @@ extern crate libc;
 use libc::{c_void, c_int, c_char, c_uint};
 
 pub type CXIndex = *mut c_void;
+pub type CXCursorVisitor = extern fn(cursor: CXCursor, parent: CXCursor, client_data: CXClientData) -> CXChildVisitResult;
+pub type CXClientData = *mut c_void;
 
 #[link(name = "clang")]
 extern "C" {
@@ -24,6 +26,18 @@ extern "C" {
     pub fn clang_getTranslationUnitCursor(
         tu: CXTranslationUnit,
     ) -> CXCursor;
+    pub fn clang_visitChildren(
+        parent: CXCursor,
+        visitor: CXCursorVisitor,
+        client_data: CXClientData,
+    ) -> c_uint;
+}
+
+#[repr(C)]
+pub enum CXChildVisitResult {
+    CXChildVisit_Break,
+    CXChildVisit_Continue,
+    CXChildVisit_Recurse,
 }
 
 #[repr(C)]
