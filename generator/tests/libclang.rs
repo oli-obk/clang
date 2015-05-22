@@ -1,3 +1,6 @@
+#![feature(plugin)]
+#![plugin(cpp_bind_gen)]
+
 extern crate clang;
 
 use clang::*;
@@ -54,4 +57,9 @@ fn parse_header() {
         depth: 0,
     };
     assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut my_data)) });
+}
+
+#[test]
+fn bindgen() {
+    include_cpp!("clang-c/CXString.h");
 }

@@ -34,11 +34,14 @@ fn expand_include_cpp(
     let filename = filename.as_str();
     let idx = unsafe { clang_createIndex(1, 1) };
     let filename = CString::new(filename).unwrap();
+    let args: Vec<&'static str> = vec!["-I", "."];
+    let args: Vec<_> = args.iter().map(|&s| CString::new(s).unwrap()).collect();
+    let args: Vec<_> = args.iter().map(|s| s.as_ptr()).collect();
     let tu = unsafe { clang_parseTranslationUnit(
         idx,
         filename.as_ptr(),
-        std::ptr::null(),
-        0,
+        args.as_ptr(),
+        args.len() as i32,
         std::ptr::null(),
         0,
         0,
