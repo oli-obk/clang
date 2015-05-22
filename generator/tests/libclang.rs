@@ -1,22 +1,6 @@
-#![feature(plugin)]
-#![plugin(cpp_bind_gen)]
-
 extern crate clang;
 
-use clang::{
-    clang_getTranslationUnitCursor,
-    clang_visitChildren,
-    CXTranslationUnitImpl,
-    CXCursor,
-    CXClientData,
-    CXChildVisitResult,
-    clang_parseTranslationUnit2,
-    CXTranslationUnit,
-    clang_createIndex,
-    clang_getCursorSpelling,
-    clang_Cursor_getMangling,
-    clang_getCursorType,
-};
+use clang::*;
 use std::ffi::{CString, CStr};
 
 use std::mem::transmute;
@@ -72,9 +56,4 @@ fn parse_header() {
         depth: 0,
     };
     assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut my_data)) });
-}
-
-// clang_getCString
-mod test {
-    include_cpp!{"clang-c/CXString.h"}
 }

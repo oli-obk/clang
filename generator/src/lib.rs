@@ -12,9 +12,9 @@ use std::mem::transmute;
 use std::str::from_utf8;
 
 use syntax::codemap::{Span, BytePos, Spanned, mk_sp};
-use syntax::parse::token::{self, intern};
+use syntax::parse::token::{self, intern, InternedString};
 use syntax::ast::{TokenTree, TtToken, TtDelimited, TtSequence, Ident, Arg, Ty, FnDecl};
-use syntax::ast::{ForeignItem};
+use syntax::ast::{ForeignItem, LitStr};
 use syntax::ast::Mutability::*;
 use syntax::{ast, abi, ast_util};
 use syntax::ext::base::{ExtCtxt, MacResult, DummyResult, MacEager};
@@ -28,6 +28,7 @@ struct Helper<'cx, 'a: 'cx> {
     cx: &'cx mut ExtCtxt<'a>,
     v: SmallVector<P<Item>>,
     fns: Vec<P<ForeignItem>>,
+    sp: Span,
 }
 
 fn expand_include_cpp<'cx, 'a>(
@@ -60,11 +61,18 @@ fn expand_include_cpp<'cx, 'a>(
     ) };
     assert!(tu as *const CXTranslationUnitImpl != std::ptr::null());
     let cursor = unsafe { clang_getTranslationUnitCursor(tu) };
+    let libc = cx.item(
+        sp,
+        Ident::new(intern("libc")),
+        vec![],
+        ast::ItemExternCrate(None),
+    );
     let (mut v, fns) = {
         let mut helper = Helper {
-            v: SmallVector::zero(),
+            v: SmallVector::one(libc),
             cx: cx,
             fns: vec![],
+            sp: sp,
         };
         assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut helper)) });
         (helper.v, helper.fns)
@@ -73,8 +81,12 @@ fn expand_include_cpp<'cx, 'a>(
         abi: abi::Abi::C,
         items: fns,
     };
-    let node = ast::ItemForeignMod(externs);
-    v.push(cx.item(sp, Ident::new(intern("something_extern_something")), vec![], node));
+    v.push(cx.item(
+        sp,
+        Ident::new(intern("something_extern_something")),
+        vec![],
+        ast::ItemForeignMod(externs),
+    ));
     MacEager::items(v)
 }
 
@@ -222,18 +234,17 @@ extern fn cb(cursor: CXCursor, _parent: CXCursor, client_data: CXClientData) -> 
     let name = unsafe { clang_getCursorSpelling(cursor.clone()) };
     let name = unsafe { from_utf8(CStr::from_ptr(clang_getCString(name)).to_bytes()).unwrap() };
     println!("{:?}: {:?} {:?} {:?}", cursor.kind, t.kind, mangled, name);
-    let sp = mk_sp(BytePos(0), BytePos(0));
     match cursor.kind {
         CXCursor_StructDecl => {
             // typedef struct {.. } <Name>
             if name == "" { return CXChildVisitResult::CXChildVisit_Continue; }
-            client_data.v.push(parse_struct(client_data.cx, name, sp, cursor));
+            client_data.v.push(parse_struct(client_data.cx, name, client_data.sp, cursor));
         }
         CXCursor_TypedefDecl => {
             assert!(name != "");
             let mut help = TypedefHelper {
                 cx: client_data.cx,
-                sp: sp,
+                sp: client_data.sp,
                 name: name,
                 item: None,
             };
@@ -243,7 +254,7 @@ extern fn cb(cursor: CXCursor, _parent: CXCursor, client_data: CXClientData) -> 
         CXCursor_FunctionDecl if mangled.ends_with(name) => {
             // c-function b/c mangled name ends with unmangled name
             // FIXME: find better method of detection
-            client_data.fns.push(parse_fn(client_data.cx, name, sp, cursor));
+            client_data.fns.push(parse_fn(client_data.cx, name, client_data.sp, cursor));
         }
         _ => unimplemented!(),
     };
