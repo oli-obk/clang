@@ -53,6 +53,24 @@ extern "C" {
     pub fn clang_getCursorSpelling(
         cursor: CXCursor
     ) -> CXString;
+    pub fn clang_getResultType(
+        T: CXType
+    ) -> CXType;
+    pub fn clang_getTypedefDeclUnderlyingType(
+        C: CXCursor,
+    ) -> CXType;
+    pub fn clang_getTypeDeclaration(
+        T: CXType,
+    ) -> CXCursor;
+    pub fn clang_getTypeSpelling(
+        T: CXType
+    ) -> CXString;
+    pub fn clang_getPointeeType(
+        T: CXType
+    ) -> CXType;
+    pub fn clang_isConstQualifiedType(
+        T: CXType
+    ) -> c_uint;
 }
 
 #[repr(C)]

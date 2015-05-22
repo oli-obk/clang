@@ -13,7 +13,10 @@ use std::str::from_utf8;
 
 use syntax::codemap::{Span, BytePos, Spanned, mk_sp};
 use syntax::parse::token::{self, intern};
-use syntax::ast::{TokenTree, TtToken, TtDelimited, TtSequence, Ident};
+use syntax::ast::{TokenTree, TtToken, TtDelimited, TtSequence, Ident, Arg, Ty, FnDecl};
+use syntax::ast::{ForeignItem};
+use syntax::ast::Mutability::*;
+use syntax::{ast, abi, ast_util};
 use syntax::ext::base::{ExtCtxt, MacResult, DummyResult, MacEager};
 use syntax::ext::build::AstBuilder;  // trait for expr_usize
 use syntax::util::small_vector::SmallVector;
@@ -24,6 +27,7 @@ use rustc::plugin::Registry;
 struct Helper<'cx, 'a: 'cx> {
     cx: &'cx mut ExtCtxt<'a>,
     v: SmallVector<P<Item>>,
+    fns: Vec<P<ForeignItem>>,
 }
 
 fn expand_include_cpp<'cx, 'a>(
@@ -56,12 +60,117 @@ fn expand_include_cpp<'cx, 'a>(
     ) };
     assert!(tu as *const CXTranslationUnitImpl != std::ptr::null());
     let cursor = unsafe { clang_getTranslationUnitCursor(tu) };
-    let mut helper = Helper {
-        v: SmallVector::zero(),
-        cx: cx,
+    let (mut v, fns) = {
+        let mut helper = Helper {
+            v: SmallVector::zero(),
+            cx: cx,
+            fns: vec![],
+        };
+        assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut helper)) });
+        (helper.v, helper.fns)
     };
-    assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut helper)) });
-    MacEager::items(helper.v)
+    let externs = ast::ForeignMod {
+        abi: abi::Abi::C,
+        items: fns,
+    };
+    let node = ast::ItemForeignMod(externs);
+    v.push(cx.item(sp, Ident::new(intern("something_extern_something")), vec![], node));
+    MacEager::items(v)
+}
+
+struct FunargHelper<'cx, 'a: 'cx> {
+    cx: &'cx mut ExtCtxt<'a>,
+    sp: Span,
+    args: Vec<Arg>,
+}
+
+#[allow(unconditional_recursion)]
+extern fn cb_funargs(
+    cursor: CXCursor,
+    _parent: CXCursor,
+    client_data: CXClientData,
+    ) -> CXChildVisitResult
+{
+    use clang::CXCursorKind::*;
+    let &mut FunargHelper {
+        ref mut cx,
+        sp,
+        ref mut args,
+    } = unsafe { transmute(client_data) };
+    args.push(parse_arg(cx, sp, cursor));
+    CXChildVisitResult::CXChildVisit_Continue
+}
+
+fn parse_ty(cx: &mut ExtCtxt, sp: Span, ty: CXType) -> P<Ty> {
+    use clang::CXTypeKind::*;
+    println!("{:?}", ty.kind);
+    let name = unsafe { clang_getTypeSpelling(ty.clone()) };
+    let name = unsafe { from_utf8(CStr::from_ptr(clang_getCString(name)).to_bytes()).unwrap() };
+    println!("name: {:?}", name);
+    match ty.kind {
+        CXType_Typedef => {
+            let ident = Ident::new(intern(name));
+            cx.ty_ident(sp, ident)
+        }
+        CXType_Pointer => {
+            let inner = unsafe { clang_getPointeeType(ty.clone()) };
+            let inner = parse_ty(cx, sp, inner);
+            let muta = if unsafe { clang_isConstQualifiedType(ty.clone()) } == 1 {
+                MutImmutable
+            } else {
+                MutMutable
+            };
+            cx.ty_ptr(sp, inner, muta)
+        }
+        CXType_Char_S => {
+            let path = vec!["libc", "c_char"];
+            let path = path.iter().map(|p| Ident::new(intern(p))).collect();
+            let path = cx.path(sp, path);
+            cx.ty_path(path)
+        }
+        _ => unimplemented!(),
+    }
+}
+
+fn parse_arg(cx: &mut ExtCtxt, sp: Span, cursor: CXCursor) -> Arg {
+    let name = unsafe { clang_getCursorSpelling(cursor.clone()) };
+    let name = unsafe { from_utf8(CStr::from_ptr(clang_getCString(name)).to_bytes()).unwrap() };
+    println!("funarg: {:?}", name);
+    let ident = Ident::new(intern(name));
+    let ty = parse_ty(cx, sp, unsafe { clang_getCursorType(cursor) });
+    cx.arg(sp, ident, ty)
+}
+
+fn parse_fn(cx: &mut ExtCtxt, name: &str, sp: Span, cursor: CXCursor) -> P<ForeignItem> {
+    use clang::CXTypeKind::*;
+    let t = unsafe { clang_getCursorType(cursor.clone()) };
+    let ret = unsafe { clang_getResultType(t.clone()) };
+    let args = {
+        let mut help = FunargHelper {
+            cx: cx,
+            sp: sp,
+            args: vec![],
+        };
+        assert_eq!(0, unsafe { clang_visitChildren(cursor, cb_funargs, transmute(&mut help)) });
+        help.args
+    };
+    let ret = match ret.kind {
+        CXType_Void => ast::NoReturn(sp),
+        _ => ast::Return(parse_ty(cx, sp, ret)),
+    };
+    let f = P(ast::FnDecl {
+        inputs: args,
+        output: ret,
+        variadic: false
+    });
+    P(ForeignItem {
+        ident: intern(name).ident(),
+        attrs: vec![],
+        id: ast::DUMMY_NODE_ID, // FIXME
+        span: sp,
+        vis: ast::Visibility::Public,
+        node: ast::ForeignItemFn(f, ast_util::empty_generics()),
+    })
 }
 
 fn parse_struct(cx: &mut ExtCtxt, name: &str, sp: Span, cursor: CXCursor) -> P<Item> {
@@ -114,11 +223,11 @@ extern fn cb(cursor: CXCursor, _parent: CXCursor, client_data: CXClientData) -> 
     let name = unsafe { from_utf8(CStr::from_ptr(clang_getCString(name)).to_bytes()).unwrap() };
     println!("{:?}: {:?} {:?} {:?}", cursor.kind, t.kind, mangled, name);
     let sp = mk_sp(BytePos(0), BytePos(0));
-    let item = match cursor.kind {
+    match cursor.kind {
         CXCursor_StructDecl => {
             // typedef struct {.. } <Name>
             if name == "" { return CXChildVisitResult::CXChildVisit_Continue; }
-            parse_struct(client_data.cx, name, sp, cursor)
+            client_data.v.push(parse_struct(client_data.cx, name, sp, cursor));
         }
         CXCursor_TypedefDecl => {
             assert!(name != "");
@@ -129,15 +238,15 @@ extern fn cb(cursor: CXCursor, _parent: CXCursor, client_data: CXClientData) -> 
                 item: None,
             };
             assert_eq!(0, unsafe { clang_visitChildren(cursor, cb_typedef, transmute(&mut help)) });
-            help.item.unwrap()
+            client_data.v.push(help.item.unwrap());
         }
         CXCursor_FunctionDecl if mangled.ends_with(name) => {
             // c-function b/c mangled name ends with unmangled name
             // FIXME: find better method of detection
+            client_data.fns.push(parse_fn(client_data.cx, name, sp, cursor));
         }
         _ => unimplemented!(),
     };
-    client_data.v.push(item);
     CXChildVisitResult::CXChildVisit_Continue
 }
 
