@@ -23,7 +23,9 @@ extern fn cb(cursor: CXCursor, parent: CXCursor, client_data: CXClientData) -> C
     let t = unsafe { clang_getCursorType(cursor.clone()) };
     let name = unsafe { clang_Cursor_getMangling(cursor.clone()) };
     let c_name = unsafe { from_utf8(CStr::from_ptr(clang_getCString(name)).to_bytes()).unwrap() };
-    println!("{:?}: {:?} {:?}", cursor.kind, t.kind, c_name);
+    let spel = unsafe { clang_getCursorSpelling(cursor.clone()) };
+    let c_spel = unsafe { from_utf8(CStr::from_ptr(clang_getCString(spel)).to_bytes()).unwrap() };
+    println!("{:?}: {:?} {:?} {:?}", cursor.kind, t.kind, c_name, c_spel);
     let mut inner_data = MyData {
         depth: my_data.depth + 1,
     };
@@ -57,6 +59,7 @@ fn parse_header() {
         depth: 0,
     };
     assert_eq!(0, unsafe { clang_visitChildren(cursor, cb, transmute(&mut my_data)) });
+    unimplemented!()
 }
 
 #[test]

@@ -50,6 +50,9 @@ extern "C" {
     pub fn clang_Cursor_getMangling(
         cursor: CXCursor,
     ) -> CXString;
+    pub fn clang_getCursorSpelling(
+        cursor: CXCursor
+    ) -> CXString;
 }
 
 #[repr(C)]
