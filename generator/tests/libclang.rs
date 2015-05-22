@@ -32,8 +32,8 @@ extern fn cb(cursor: CXCursor, parent: CXCursor, client_data: CXClientData) -> C
 fn parse_header() {
     println!("");
     let idx = unsafe { clang_createIndex(1, 1) };
-    let filename = CString::new("tests/clang-c/CXString.h").unwrap();
-    let args = vec!["-I", "tests"];
+    let filename = CString::new("clang-c/CXString.h").unwrap();
+    let args: Vec<&'static str> = vec!["-I", "."];
     let args: Vec<_> = args.iter().map(|&s| CString::new(s).unwrap()).collect();
     let args: Vec<_> = args.iter().map(|s| s.as_ptr()).collect();
     let mut tu: CXTranslationUnit = unsafe {transmute(0usize)};

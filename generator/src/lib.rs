@@ -24,16 +24,16 @@ fn expand_include_cpp(
     args: &[TokenTree]
     ) -> Box<MacResult + 'static>
 {
-    let (text, sp) = match args {
+    let (filename, sp) = match args {
         [TtToken(sp, token::Literal(token::Lit::Str_(s), _))] => (s, sp),
         [..] => {
             cx.span_err(sp, "expected a single string literal");
             return DummyResult::any(sp);
         }
     };
-    let text = text.as_str();
+    let filename = filename.as_str();
     let idx = unsafe { clang_createIndex(1, 1) };
-    let filename = CString::new(text).unwrap();
+    let filename = CString::new(filename).unwrap();
     let tu = unsafe { clang_parseTranslationUnit(
         idx,
         filename.as_ptr(),
