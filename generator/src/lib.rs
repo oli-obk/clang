@@ -192,7 +192,17 @@ fn parse_struct(cx: &mut ExtCtxt, name: &str, sp: Span, cursor: CXCursor) -> P<I
         fields: fields,
         ctor_id: None, // FIXME
     };
-    cx.item_struct(sp, ident, struct_def)
+    let s = cx.item_struct(sp, ident, struct_def);
+    let c = cx.meta_word(sp, InternedString::new("C"));
+    let meta = cx.meta_list(
+        sp,
+        InternedString::new("repr"),
+        vec![c],
+    );
+    s.map(|mut s| {
+        s.attrs.push(cx.attribute(sp, meta));
+        s
+    })
 }
 
 struct TypedefHelper<'cx, 'a: 'cx> {
