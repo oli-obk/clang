@@ -34,10 +34,22 @@ extern "C" {
     pub fn clang_getCursorType(
         cursor: CXCursor
     ) -> CXType;
+    pub fn clang_getCString(
+        string: CXString,
+    ) -> *const c_char;
+    pub fn clang_Cursor_getMangling(
+        cursor: CXCursor,
+    ) -> CXString;
 }
 
 #[repr(C)]
-#[derive(Debug)]
+pub struct CXString {
+    data: *const c_void,
+    private_flags: c_uint,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone)]
 pub enum CXTypeKind {
     CXType_Invalid = 0,
     CXType_Unexposed = 1,
@@ -90,6 +102,7 @@ pub enum CXTypeKind {
 }
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct CXType {
     pub kind: CXTypeKind,
     data: [*const c_void; 2],

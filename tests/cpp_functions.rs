@@ -1,9 +1,10 @@
 extern crate clang;
 
 use clang::*;
-use std::ffi::CString;
+use std::ffi::{CString, CStr};
 
 use std::mem::transmute;
+use std::str::from_utf8;
 
 struct MyData {
     depth: i32,
@@ -17,7 +18,9 @@ extern fn cb(cursor: CXCursor, parent: CXCursor, client_data: CXClientData) -> C
         print!(" ");
     }
     let t = unsafe { clang_getCursorType(cursor.clone()) };
-    println!("{:?}: {:?}", cursor.kind, t.kind);
+    let name = unsafe { clang_Cursor_getMangling(cursor.clone()) };
+    let c_name = unsafe { from_utf8(CStr::from_ptr(clang_getCString(name)).to_bytes()).unwrap() };
+    println!("{:?}: {:?} {:?}", cursor.kind, t.kind, c_name);
     let mut inner_data = MyData {
         depth: my_data.depth + 1,
     };
